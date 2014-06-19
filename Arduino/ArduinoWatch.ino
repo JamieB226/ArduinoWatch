@@ -284,13 +284,19 @@ void loop()
   //Do Time computations
   if((millis()-timer) > 0)
   {
-    currentTime.addMilliseconds(millis()-timer);
-    timer=millis();
+    uint32_t temp_timer;
+    
+    temp_timer=millis();
+    currentTime.addMilliseconds(temp_timer-timer);
+    timer=temp_timer;
   }
   else
   {
-    currentTime.addMilliseconds((2^32)-timer+millis());
-    timer=millis();
+    uint32_t temp_timer;
+    
+    temp_timer=millis();
+    currentTime.addMilliseconds((2^32)-timer+temp_timer);
+    timer=temp_timer;
   }
   
   //Get correct AM/PM value
