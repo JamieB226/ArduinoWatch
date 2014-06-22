@@ -26,9 +26,11 @@ public class Settings extends Activity {
 	public static String strRSSFeedPassword;
 	public static String strGmailUserName;
 	public static String strGmailPassword;
-	public static String strAOLUserName;
-	public static String strAOLPassword;
+	public static String strIMAPUserName;
+	public static String strIMAPPassword;
+	public static String strIMAPServer;
 	public static String strWatchBTID;
+	public static String strWatchAuthCode;
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -46,9 +48,11 @@ public class Settings extends Activity {
 		strRSSFeedPassword = settings.getString("RSSFeedPassword", "");
 		strGmailUserName = settings.getString("GmailUserName", "");
 		strGmailPassword = settings.getString("GmailPassword", "");
-		strAOLUserName = settings.getString("AOLUserName", "");
-		strAOLPassword = settings.getString("AOLPassword", "");
+		strIMAPUserName = settings.getString("IMAPUserName", "");
+		strIMAPPassword = settings.getString("IMAPPassword", "");
+		strIMAPServer = settings.getString("IMAPServer", "");
 		strWatchBTID = settings.getString("WatchBTID", "");
+		strWatchAuthCode= settings.getString("WatchAuthCode", "");
 	}
 
 	@Override
@@ -98,12 +102,16 @@ public class Settings extends Activity {
 			temp.setText(strGmailUserName);
 			temp = (EditText) rootView.findViewById(R.id.txtGmailPassword);
 			temp.setText(strGmailPassword);
-			temp = (EditText) rootView.findViewById(R.id.txtAOLUserName);
-			temp.setText(strAOLUserName);
-			temp = (EditText) rootView.findViewById(R.id.txtAOLPassword);
-			temp.setText(strAOLPassword);
+			temp = (EditText) rootView.findViewById(R.id.txtIMAPUserName);
+			temp.setText(strIMAPUserName);
+			temp = (EditText) rootView.findViewById(R.id.txtIMAPPassword);
+			temp.setText(strIMAPPassword);
+			temp = (EditText) rootView.findViewById(R.id.txtIMAPServer);
+			temp.setText(strIMAPServer);
 			temp = (EditText) rootView.findViewById(R.id.txtWatchBTID);
 			temp.setText(strWatchBTID);
+			temp = (EditText) rootView.findViewById(R.id.txtWatchAuthCode);
+			temp.setText(strWatchAuthCode);
 			
 			mServiceIntent = new Intent(getActivity(), ArduinoWatchService.class);
 			mServiceIntent.setAction("StartSync");
@@ -138,12 +146,16 @@ public class Settings extends Activity {
 		editor.putString("GmailUserName",temp.getText().toString());
 		temp = (EditText) findViewById(R.id.txtGmailPassword);
 		editor.putString("GmailPassword",temp.getText().toString());
-		temp = (EditText) findViewById(R.id.txtAOLUserName);
-		editor.putString("AOLUserName",temp.getText().toString());
-		temp = (EditText) findViewById(R.id.txtAOLPassword);
-		editor.putString("AOLPassword",temp.getText().toString());
+		temp = (EditText) findViewById(R.id.txtIMAPUserName);
+		editor.putString("IMAPUserName",temp.getText().toString());
+		temp = (EditText) findViewById(R.id.txtIMAPPassword);
+		editor.putString("IMAPPassword",temp.getText().toString());
+		temp = (EditText) findViewById(R.id.txtIMAPServer);
+		editor.putString("IMAPServer",temp.getText().toString());
 		temp = (EditText) findViewById(R.id.txtWatchBTID);
 		editor.putString("WatchBTID",temp.getText().toString());
+		temp = (EditText) findViewById(R.id.txtWatchAuthCode);
+		editor.putString("WatchAuthCode",temp.getText().toString());
 		
 		editor.commit();
 		

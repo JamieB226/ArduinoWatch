@@ -3,7 +3,13 @@ package com.boothcomputing.arduinowatch;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Date;
 import java.util.Set;
+import java.util.TimeZone;
+import java.util.Timer;
+import java.util.TimerTask;
 
 import android.app.IntentService;
 import android.bluetooth.BluetoothAdapter;
@@ -12,6 +18,7 @@ import android.bluetooth.BluetoothSocket;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.os.Handler;
 import android.os.ParcelUuid;
 import android.preference.PreferenceManager;
 import android.util.Log;
@@ -26,6 +33,10 @@ public class ArduinoWatchService extends IntentService
 	public static String strAOLUserName;
 	public static String strAOLPassword;
 	public static String strWatchBTID;
+	public static String strWatchAuthCode;
+	public static int intGmailMessages;
+	public static int intIMAPMessages;
+	public static int intRSSUnread;
 	byte[] watchBuffer=new byte[32];
 	byte[] outBuffer=new byte[32];
 	private OutputStream outputStream;
@@ -65,24 +76,70 @@ public class ArduinoWatchService extends IntentService
 	}
 
 	public void main(String[] args)
-	{
-		System.out.println("Service:  Processing main loop");
-		readSettings();
-		
-		try
+	{		
+		while(true)
 		{
-			initWatchConnection();
+			System.out.println("Service:  Processing main loop");
+			readSettings();
+			
+			try
+			{
+				initWatchConnection();
+			}
+			catch (IOException e)
+			{
+				e.printStackTrace();
+			}
+			
+			try
+			{
+				readFromWatch();
+			}
+			catch (IOException e)
+			{
+				System.out.println("Connection to watch broken.  Unable to read from watch.");
+			}
+			
+			if
+			final Handler timerHandler = new Handler();
+			Runnable timerRunnable = new Runnable() {
+
+			        @Override
+			        public void run() {
+			     	   sendTimeUpdate();
+			     	   sendNotificationUpdate();
+
+			            timerHandler.postDelayed(this, 500);
+			        }
+			    };
+			
 		}
-		catch (IOException e)
-		{
-			e.printStackTrace();
-		}
-		
-		readFromWatch();
-		
 
 	}
 	
+	private void sendTimeUpdate()
+	{
+		Calendar cal = Calendar.getInstance();
+		TimeZone tz = cal.getTimeZone();
+
+		/* date formatter in local timezone */
+		SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMHHmmss");
+		sdf.setTimeZone(tz);
+
+		/* Generate time string to send to watch */
+		String localTime = "$tm" + sdf.format(new Date());
+
+		try
+		{
+			sendToWatch(localTime);
+		}
+		catch (IOException e)
+		{
+			System.out.println("Connection to watch broken.  Command not sent:"
+					+ localTime);
+		}
+	}
+
 	private void readSettings()
 	{
 		SharedPreferences settings = getBaseContext().getSharedPreferences("ArduinoWatch", Context.MODE_PRIVATE);
@@ -94,6 +151,7 @@ public class ArduinoWatchService extends IntentService
 		strAOLUserName = settings.getString("AOLUserName", "");
 		strAOLPassword = settings.getString("AOLPassword", "");
 		strWatchBTID = settings.getString("WatchBTID", "");
+		strWatchAuthCode = settings.getString("WatchAuthCode", "");
 	}
 
 	private void initWatchConnection() throws IOException
@@ -126,17 +184,26 @@ public class ArduinoWatchService extends IntentService
 
 	public void sendToWatch(String s) throws IOException
 	{
-		outputStream.write(s.getBytes());
+		try
+		{
+			outputStream.write(s.getBytes());
+		}
+		catch (IOException e)
+		{
+			throw e;
+		}
 	}
 	
-	public void readFromWatch()
+	public void readFromWatch() throws IOException
 	{
 		int bytesRead;
 		
 		try
 		{
+			// Try reading from watch buffer
 			bytesRead=inStream.read(watchBuffer, 0, 32);
 			
+			//check to see if we got data.  If so, process it.
 			if(bytesRead != -1)
 			{
 				processWatchString(new String(watchBuffer,0,bytesRead));
@@ -144,7 +211,7 @@ public class ArduinoWatchService extends IntentService
 		}
 		catch (IOException e)
 		{
-			e.printStackTrace();
+			throw e;
 		}
 	}
 
@@ -159,11 +226,44 @@ public class ArduinoWatchService extends IntentService
 			if(command.startsWith("$tm"))
 			{
 				//Send time update
+				sendTimeUpdate();
 			}
 			if(command.startsWith("$nf"))
 			{
 				//Send Notification update
+				sendNotificationUpdate();
 			}
+			if(command.startsWith("$ah"))
+			{
+				//Send Auth Code
+				sendAuthCode();
+			}
+		}
+	}
+
+	private void sendNotificationUpdate()
+	{
+		try
+		{
+			sendToWatch("$nf"+Integer.toString(intGmailMessages)+","+Integer.toString(intIMAPMessages)+","+Integer.toString(intRSSUnread));
+		}
+		catch (IOException e)
+		{
+			System.out.println("Connection to watch broken.  Command not sent:"
+					+ "$nf"+Integer.toString(intGmailMessages)+","+Integer.toString(intIMAPMessages)+","+Integer.toString(intRSSUnread));
+		}
+	}
+
+	private void sendAuthCode()
+	{
+		try
+		{
+			sendToWatch("$ah"+strWatchAuthCode);
+		}
+		catch (IOException e)
+		{
+			System.out.println("Connection to watch broken.  Command not sent:"
+					+ "$ah"+strWatchAuthCode);
 		}
 	}
 
