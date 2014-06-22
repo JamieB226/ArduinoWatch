@@ -1,9 +1,9 @@
 ArduinoWatch
 ============
 
-Code for ArduinoWatch
+Code for ArduinoWatch<BR>
 
-Android - Android App Project
-Arduino - Code for the Arduino
-Diagrams - Fritzing diagram of the connections in the project
+Android - Android App Project<BR>
+Arduino - Code for the Arduino<BR>
+Diagrams - Fritzing diagram of the connections in the project<BR>
 Libraries - Libraries for the Arduino project (mine and modified from Adafruit)
