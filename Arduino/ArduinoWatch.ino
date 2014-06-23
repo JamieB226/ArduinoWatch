@@ -17,6 +17,8 @@ aci_evt_opcode_t laststatus;
 #define OLED_CS 7
 #define OLED_RST 8
 
+#define VIBRATION 4
+
 #include <SSD1306ASCII.h>
 #define SSD1306_COLUMNADDR 0x21
 #define SSD1306_PAGEADDR   0x22
@@ -128,18 +130,21 @@ static unsigned char __attribute__ ((progmem)) font[] = {
 boolean blnConnected;
 boolean blnBTInit;
 boolean blnDayAdded;
+//boolean blnDebug=false;
 uint8_t currentHour,currentMin,currentSec;
 String currentToD;
 Time currentTime;
 Date currentDate;
 uint32_t timer;
 aci_evt_opcode_t status;
-int freeRAM=0;
+//int freeRAM=0;
 
 void setup()
 {
   Serial.begin(9600);
   Serial.println(F("In init"));
+  //Setup up vibration motor
+  pinMode(VIBRATION,OUTPUT);  
   blnBTInit=false;
   Serial.println(F("Setting up SPI"));
   SPI.begin ();
@@ -201,16 +206,16 @@ void setup()
   
   blnConnected=false;
   blnDayAdded=false;
-  currentHour=99;
-  currentMin=99;
-  currentSec=99;
   currentTime.setTime(12,0,0,0);
+  currentHour=currentTime.getHours();
+  currentMin=currentTime.getMinutes();
+  currentSec=currentTime.getSeconds();
   currentToD="PM";
   currentDate.setDate(2014,1,1);
   
   timer=millis();
   
-  writeTime(currentTime.getAMPMHours(),currentTime.getMinutes(),currentTime.getSeconds(),currentToD,false);
+  writeTime(currentTime.getAMPMHours(),currentTime.getMinutes(),currentTime.getSeconds(),currentToD,true);
   writeDate(currentDate.getDoW(),currentDate.getYear(),currentDate.getMonth(),currentDate.getDay());
   writeNotificationLine(0,0,0);
 
@@ -267,7 +272,7 @@ void loop()
       processBTInput(strOutput);
     }
   }
-  if (status == ACI_EVT_DISCONNECTED) 
+  if (status == ACI_EVT_DISCONNECTED || status == ACI_EVT_INVALID || status == ACI_EVT_HW_ERROR || status == ACI_EVT_PIPE_ERROR) 
   {
       if(status != laststatus)
       {
@@ -310,7 +315,14 @@ void loop()
   }
   
   //Print new Time
-  writeTime(currentTime.getAMPMHours(),currentTime.getMinutes(),currentTime.getSeconds(),currentToD,false);
+  if(currentHour==99)
+  {
+    writeTime(currentTime.getAMPMHours(),currentTime.getMinutes(),currentTime.getSeconds(),currentToD,true);
+  }
+  else
+  {
+    writeTime(currentTime.getAMPMHours(),currentTime.getMinutes(),currentTime.getSeconds(),currentToD,false);
+  }  
   
   // Update Date if required (time is midnight and we haven't already added a day)
   if(currentTime.getHours()==0 && currentTime.getMinutes()==0 && blnDayAdded==false)
@@ -329,9 +341,12 @@ void loop()
 
 void processBTInput(String s)
 {
-  writeBlankLine(2);
-  setCursor(0,2);
-  writeString(s);
+//  if(blnDebug == true)
+//  {
+//    writeBlankLine(2);
+//    setCursor(0,2);
+//    writeString(s);
+//  }
   
   if(s.startsWith("$tm") == true)
   {
@@ -354,27 +369,23 @@ void processBTInput(String s)
   {
     processIncomingCall(s);
   }
+//  if(s.startsWith("$db") == true)
+//  {
+//    blnDebug=!blnDebug;
+//    writeBlankLine(2);
+//  }
 }
 
 void processIncomingTime(String s)
 {
-  uint8_t month,day,hour,minute,second;
-  uint16_t year;
-  
   blnDayAdded=false;
   
-  year=(s.substring(3,7)).toInt();
-  month=(s.substring(7,9)).toInt();
-  day=(s.substring(9,11)).toInt();
-  hour=(s.substring(11,13)).toInt();
-  minute=(s.substring(13,15)).toInt();
-  second=(s.substring(15,17)).toInt();
+  currentTime.setTime((s.substring(11,13)).toInt(),(s.substring(13,15)).toInt(),(s.substring(15,17)).toInt(),0);
+  currentDate.setDate((s.substring(3,7)).toInt(),(s.substring(7,9)).toInt(),(s.substring(9,11)).toInt());
   
-  currentTime.setTime(hour,minute,second,0);
-  currentDate.setDate(year,month,day);
-  
-  writeTime(currentTime.getAMPMHours(),currentTime.getMinutes(),currentTime.getSeconds(),currentToD,true);
-  writeDate(currentDate.getDoW(),currentDate.getYear(),currentDate.getMonth(),currentDate.getDay());
+//  writeTime(currentTime.getAMPMHours(),currentTime.getMinutes(),currentTime.getSeconds(),currentToD,true);
+//  writeDate(currentDate.getDoW(),currentDate.getYear(),currentDate.getMonth(),currentDate.getDay());
+  currentHour=99;
 }
 
 void processIncomingNotificationUpdate(String s)
@@ -403,10 +414,14 @@ void processIncomingEmail(String s)
   writeString("Email from:");
   setCursor(0,4);
   writeBigString(s.substring(3));
+  vibrate(1);
+  delay(500);
+  vibrate(1);
   delay(3000);
   writeBlankLine(3);
   writeBlankLine(4);
   writeBlankLine(5);
+  currentHour=99;
 }
 
 void processIncomingCall(String s)
@@ -418,10 +433,12 @@ void processIncomingCall(String s)
     writeString("Call from:");
     setCursor(0,4);
     writeBigString(s.substring(3));
+    vibrate(2);
     delay(3000);
     writeBlankLine(3);
     writeBlankLine(4);
     writeBlankLine(5);
+    currentHour=99;
 }
 
 void writeNotificationLine(uint8_t numGmail,uint8_t numEmail, uint8_t numRSS)
@@ -530,34 +547,40 @@ void writeDisplay(byte c, uint8_t page_x, uint8_t page_y)
 
 void writeDate(uint8_t dow,uint16_t year,uint8_t month,uint8_t day)
 {
-  String temp,strDoW;
+  String temp="";
   
   switch(dow)
   {
     case 0:
-      strDoW="SUN";
+      temp.concat("SUN ");
+      temp=temp+year+" / "+month+" / "+day;
       break;
     case 1:
-      strDoW="MON";
+      temp.concat("MON ");
+      temp=temp+year+" / "+month+" / "+day;
       break;
     case 2:
-      strDoW="TUE";
+      temp.concat("TUE ");
+      temp=temp+year+" / "+month+" / "+day;
       break;
     case 3:
-      strDoW="WED";
+      temp.concat("WED ");
+      temp=temp+year+" / "+month+" / "+day;
       break;
     case 4:
-      strDoW="THU";
+      temp.concat("THU ");
+      temp=temp+year+" / "+month+" / "+day;
       break;
     case 5:
-      strDoW="FRI";
+      temp.concat("FRI ");
+      temp=temp+year+" / "+month+" / "+day;
       break;
     case 6:
-      strDoW="SAT";
+      temp.concat("SAT ");
+      temp=temp+year+" / "+month+" / "+day;
       break;
   }
   
-  temp=strDoW+" "+year+" / "+month+" / "+day;
   writeBlankLine(7);
   writeString(temp,9,7);
 }
@@ -784,4 +807,11 @@ int free_ram()
   int v;
   
   return (int) &v - (__brkval == 0 ? (int) &__heap_start : (int) __brkval);
+}
+
+void vibrate(uint8_t duration_sec)
+{
+  digitalWrite(VIBRATION,HIGH);
+  delay(duration_sec*1000);
+  digitalWrite(VIBRATION,LOW);
 }
