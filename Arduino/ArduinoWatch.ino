@@ -130,6 +130,7 @@ static unsigned char __attribute__ ((progmem)) font[] = {
 boolean blnConnected;
 boolean blnBTInit;
 boolean blnDayAdded;
+boolean blnBTAddrFound;
 //boolean blnDebug=false;
 uint8_t currentHour,currentMin,currentSec;
 String currentToD;
@@ -234,7 +235,15 @@ void loop()
       Serial.println(F("* Advertising started"));
       writeBlankLine(3);
       setCursor(0,2);
-      writeString("Listening...");
+      writeString("Ready...");
+    }
+    if(BTLEserial.strBTAddr.length()  > 0 && blnBTAddrFound == false)
+    {
+      setCursor(50,2);
+      Serial.println("Read the following from strBTAddr");
+      Serial.println(BTLEserial.strBTAddr);
+      writeString(BTLEserial.strBTAddr);
+      blnBTAddrFound=true;
     }
     blnConnected=false;
   }
@@ -279,8 +288,16 @@ void loop()
         Serial.println(F("* Disconnected or advertising timed out"));
         writeBlankLine(3);
         setCursor(0,2);
-        writeString("Listening...");
+        writeString("Ready...");
         blnConnected=false;
+      }
+      if(BTLEserial.strBTAddr.length()  > 0 && blnBTAddrFound == false)
+      {
+        setCursor(50,2);
+        Serial.println("Read the following from strBTAddr");
+        Serial.println(BTLEserial.strBTAddr);
+        writeString(BTLEserial.strBTAddr);
+        blnBTAddrFound=true;
       }
   }
   // OK set the last status change to this one
