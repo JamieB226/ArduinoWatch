@@ -110,11 +110,8 @@ public class Settings extends Activity {
 			temp.setText(strIMAPServer);
 			temp = (EditText) rootView.findViewById(R.id.txtWatchBTID);
 			temp.setText(strWatchBTID);
-			temp = (EditText) rootView.findViewById(R.id.txtWatchAuthCode);
-			temp.setText(strWatchAuthCode);
 			
 			mServiceIntent = new Intent(getActivity(), ArduinoWatchService.class);
-			mServiceIntent.setAction("StartSync");
 			
 			getActivity().startService(mServiceIntent);
 			
@@ -154,8 +151,6 @@ public class Settings extends Activity {
 		editor.putString("IMAPServer",temp.getText().toString());
 		temp = (EditText) findViewById(R.id.txtWatchBTID);
 		editor.putString("WatchBTID",temp.getText().toString());
-		temp = (EditText) findViewById(R.id.txtWatchAuthCode);
-		editor.putString("WatchAuthCode",temp.getText().toString());
 		
 		editor.commit();
 		

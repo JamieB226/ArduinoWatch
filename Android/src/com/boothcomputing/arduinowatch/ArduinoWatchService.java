@@ -11,7 +11,7 @@ import java.util.TimeZone;
 import java.util.Timer;
 import java.util.TimerTask;
 
-import android.app.IntentService;
+import android.app.Service;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothSocket;
@@ -19,11 +19,12 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Handler;
+import android.os.IBinder;
 import android.os.ParcelUuid;
 import android.preference.PreferenceManager;
 import android.util.Log;
 
-public class ArduinoWatchService extends IntentService
+public class ArduinoWatchService extends Service
 {
 	public static String strRSSFeedURL;
 	public static String strRSSFeedUserName;
@@ -33,7 +34,6 @@ public class ArduinoWatchService extends IntentService
 	public static String strAOLUserName;
 	public static String strAOLPassword;
 	public static String strWatchBTID;
-	public static String strWatchAuthCode;
 	public static int intGmailMessages;
 	public static int intIMAPMessages;
 	public static int intRSSUnread;
@@ -42,16 +42,36 @@ public class ArduinoWatchService extends IntentService
 	private OutputStream outputStream;
 	private InputStream inStream;
 	private static boolean blnSync;
+	BluetoothSocket socket;
+	
+	final Handler timerHandler = new Handler();
+	Runnable timerRunnable = new Runnable() {
+
+	        @Override
+	        public void run() 
+	        {
+	     	   if(socket != null)
+	     	   {
+		     	   if(socket.isConnected() == true)
+		     	   {
+			     	   sendTimeUpdate();
+			     	   sendNotificationUpdate();
+		     	   }
+	     	   }
+
+	            timerHandler.postDelayed(this, 5000);
+	        }
+	    };
 
 	public ArduinoWatchService()
 	{
-		super("ArduinoWatchService");
+		super();
 		
 		System.out.println("Service:  Created Service");
 		// TODO Auto-generated constructor stub
 	}
 
-	@Override protected void onHandleIntent(Intent intent)
+	protected void onHandleIntent(Intent intent)
 	{
 		System.out.println("Service:  Processing intent");
 		
@@ -77,44 +97,7 @@ public class ArduinoWatchService extends IntentService
 
 	public void main(String[] args)
 	{		
-		while(true)
-		{
-			System.out.println("Service:  Processing main loop");
-			readSettings();
-			
-			try
-			{
-				initWatchConnection();
-			}
-			catch (IOException e)
-			{
-				e.printStackTrace();
-			}
-			
-			try
-			{
-				readFromWatch();
-			}
-			catch (IOException e)
-			{
-				System.out.println("Connection to watch broken.  Unable to read from watch.");
-			}
-			
-			if
-			final Handler timerHandler = new Handler();
-			Runnable timerRunnable = new Runnable() {
-
-			        @Override
-			        public void run() {
-			     	   sendTimeUpdate();
-			     	   sendNotificationUpdate();
-
-			            timerHandler.postDelayed(this, 500);
-			        }
-			    };
-			
-		}
-
+		
 	}
 	
 	private void sendTimeUpdate()
@@ -151,7 +134,6 @@ public class ArduinoWatchService extends IntentService
 		strAOLUserName = settings.getString("AOLUserName", "");
 		strAOLPassword = settings.getString("AOLPassword", "");
 		strWatchBTID = settings.getString("WatchBTID", "");
-		strWatchAuthCode = settings.getString("WatchAuthCode", "");
 	}
 
 	private void initWatchConnection() throws IOException
@@ -159,16 +141,45 @@ public class ArduinoWatchService extends IntentService
 		BluetoothAdapter blueAdapter = BluetoothAdapter.getDefaultAdapter();
 		if (blueAdapter != null)
 		{
+			System.out.println("Service:  Got Default Adapter");
 			if (blueAdapter.isEnabled())
 			{
+				System.out.println("Service:  Bluetooth is Enabled");
 				if(BluetoothAdapter.checkBluetoothAddress(strWatchBTID) == true)
 				{
-					BluetoothDevice bdWatch = blueAdapter.getRemoteDevice(strWatchBTID);
-					ParcelUuid[] uuids = bdWatch.getUuids();
-					BluetoothSocket socket = bdWatch.createRfcommSocketToServiceRecord(uuids[0].getUuid());
-					socket.connect();
-					outputStream = socket.getOutputStream();
-					inStream = socket.getInputStream();
+					System.out.println("Service:  Watch Bluetooth Address is valid.");
+					BluetoothDevice bdWatch = blueAdapter.getRemoteDevice(strWatchBTID.toUpperCase());
+					if(bdWatch != null)
+					{
+						System.out.println("Service:  Got Remote Device for Watch");
+						ParcelUuid[] uuids = bdWatch.getUuids();
+						if(uuids != null)
+						{
+							System.out.println("Service:  Got uuids for Watch");
+							if(uuids.length > 0)
+							{
+								socket = bdWatch.createRfcommSocketToServiceRecord(uuids[0].getUuid());
+								if(socket != null)
+								{
+									System.out.println("Service:  Got socket for Watch");
+									socket.connect();
+								}
+							}
+						}
+					}
+					if(socket != null)
+					{
+						if(socket.isConnected() == true)
+						{
+							System.out.println("Service:  Connected to watch");
+							outputStream = socket.getOutputStream();
+							inStream = socket.getInputStream();
+						}
+						else
+						{
+							System.out.println("Service:  Failed to connect to watch.");
+						}
+					}
 				}
 				else
 				{
@@ -233,11 +244,6 @@ public class ArduinoWatchService extends IntentService
 				//Send Notification update
 				sendNotificationUpdate();
 			}
-			if(command.startsWith("$ah"))
-			{
-				//Send Auth Code
-				sendAuthCode();
-			}
 		}
 	}
 
@@ -254,17 +260,72 @@ public class ArduinoWatchService extends IntentService
 		}
 	}
 
-	private void sendAuthCode()
+	@Override public IBinder onBind(Intent intent)
 	{
-		try
-		{
-			sendToWatch("$ah"+strWatchAuthCode);
-		}
-		catch (IOException e)
-		{
-			System.out.println("Connection to watch broken.  Command not sent:"
-					+ "$ah"+strWatchAuthCode);
-		}
+		return null;
 	}
 
+	@Override
+	  public void onCreate()
+	{
+		System.out.println("Service:  Created");
+	}
+	
+	@Override
+	  public void onDestroy() {
+		System.out.println("Service:  Destroyed");
+	}
+	
+	@Override
+	public int onStartCommand(Intent intent, int flags, int startId)
+	{
+		readSettings();
+		final Runnable r = new Runnable() 
+		{
+			public void run() 
+			{
+				timerHandler.postDelayed(timerRunnable, 5000);
+				while(true)
+				{
+					try
+					{
+						if(socket != null)
+						{
+							if(socket.isConnected() != true)
+							{
+								initWatchConnection();
+							}
+						}
+						else
+						{
+							initWatchConnection();
+						}
+					}
+					catch (IOException e)
+					{
+						System.out.println("Unable to connect to watch.");
+					}
+					
+					try
+					{
+						if(socket != null)
+						{
+							if(inStream != null)
+							{
+								readFromWatch();
+							}
+						}
+					}
+					catch (IOException e)
+					{
+						System.out.println("Connection to watch broken.  Unable to read from watch.");
+					}
+					
+				}
+			}
+		};
+		Thread t = new Thread(r);
+		t.start();
+		return Service.START_STICKY;
+	}
 }

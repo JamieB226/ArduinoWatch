@@ -26,12 +26,10 @@ public final class R {
     }
     public static final class id {
         public static final int TableLayout1=0x7f080001;
-        public static final int action_settings=0x7f080025;
-        public static final int btnResetAuthCode=0x7f080022;
-        public static final int btn_reset_watch=0x7f080021;
-        public static final int btn_save_settings=0x7f080024;
+        public static final int action_settings=0x7f080021;
+        public static final int btn_reset_watch=0x7f08001e;
+        public static final int btn_save_settings=0x7f08001f;
         public static final int container=0x7f080000;
-        public static final int lblAuthCode=0x7f08001e;
         public static final int lblGmailPassword=0x7f08000f;
         public static final int lblGmailUserName=0x7f08000c;
         public static final int lblIMAPPassword=0x7f080015;
@@ -43,8 +41,7 @@ public final class R {
         public static final int lblWatchBTID=0x7f08001b;
         public static final int tableRow1=0x7f080002;
         public static final int tableRow10=0x7f080017;
-        public static final int tableRow11=0x7f08001d;
-        public static final int tableRow12=0x7f080023;
+        public static final int tableRow12=0x7f080020;
         public static final int tableRow2=0x7f080005;
         public static final int tableRow3=0x7f080008;
         public static final int tableRow4=0x7f08000b;
@@ -52,7 +49,7 @@ public final class R {
         public static final int tableRow6=0x7f080011;
         public static final int tableRow7=0x7f080014;
         public static final int tableRow8=0x7f08001a;
-        public static final int tableRow9=0x7f080020;
+        public static final int tableRow9=0x7f08001d;
         public static final int txtGmailPassword=0x7f080010;
         public static final int txtGmailUserName=0x7f08000d;
         public static final int txtIMAPPassword=0x7f080016;
@@ -61,9 +58,8 @@ public final class R {
         public static final int txtRSSFeedPassword=0x7f08000a;
         public static final int txtRSSFeedURL=0x7f080004;
         public static final int txtRSSFeedUserName=0x7f080007;
-        public static final int txtWatchAuthCode=0x7f08001f;
         public static final int txtWatchBTID=0x7f08001c;
-        public static final int watch_info=0x7f080026;
+        public static final int watch_info=0x7f080022;
     }
     public static final class layout {
         public static final int activity_settings=0x7f030000;
