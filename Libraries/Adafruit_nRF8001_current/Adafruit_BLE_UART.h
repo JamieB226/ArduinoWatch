@@ -58,7 +58,8 @@ class Adafruit_BLE_UART : public Stream
   void flush(void);
 
   aci_evt_opcode_t getState(void);
-
+  aci_evt_cmd_rsp_params_get_device_address_t BTAddr; /* Bluetooth Device Address (RAW)*/
+    String strBTAddr; /* Bluetooth Device Address (Human Readable [HEX])*/
  private:  
   void defaultACICallback(aci_evt_opcode_t event);
   void defaultRX(uint8_t *buffer, uint8_t len);

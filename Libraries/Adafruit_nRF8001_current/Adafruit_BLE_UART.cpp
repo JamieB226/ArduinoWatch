@@ -41,6 +41,8 @@ static hal_aci_data_t setup_msgs[NB_SETUP_MESSAGES] PROGMEM = SETUP_MESSAGES_CON
 static struct aci_state_t aci_state;            /* ACI state data */
 static hal_aci_evt_t  aci_data;                 /* Command buffer */
 static bool timing_change_done = false;
+aci_evt_cmd_rsp_params_get_device_address_t BTAddr; /* Bluetooth Device Address (RAW)*/
+String strBTAddr; /* Bluetooth Device Address (Human Readable [HEX])*/
 
 static uint8_t uart_buffer[20];
 static uint8_t uart_buffer_len = 0;
@@ -293,6 +295,7 @@ void Adafruit_BLE_UART::pollACI()
             case ACI_DEVICE_STANDBY:
               /* Start advertising ... first value is advertising time in seconds, the */
               /* second value is the advertising interval in 0.625ms units */
+              lib_aci_get_address();
               lib_aci_connect(adv_timeout, adv_interval);
               defaultACICallback(ACI_EVT_DEVICE_STARTED);
 	      if (aci_event) 
@@ -320,7 +323,27 @@ void Adafruit_BLE_UART::pollACI()
           // Store the version and configuration information of the nRF8001 in the Hardware Revision String Characteristic
           lib_aci_set_local_data(&aci_state, PIPE_DEVICE_INFORMATION_HARDWARE_REVISION_STRING_SET, 
             (uint8_t *)&(aci_evt->params.cmd_rsp.params.get_device_version), sizeof(aci_evt_cmd_rsp_params_get_device_version_t));
-        }        
+        }
+        if (ACI_CMD_GET_DEVICE_ADDRESS == aci_evt->params.cmd_rsp.cmd_opcode)
+        {
+            Serial.println(F("Back from Get Device Address"));
+            strBTAddr="";
+            for (uint8_t x=0; x<BTLE_DEVICE_ADDRESS_SIZE; x++)
+            {
+                String tempAddr=String(aci_evt->params.cmd_rsp.params.get_device_address.bd_addr_own[x],HEX);
+                if(tempAddr.length() < 2)
+                {
+                    tempAddr='0'+tempAddr;
+                }
+                strBTAddr.concat(tempAddr);
+                strBTAddr.toUpperCase();
+                Serial.print(aci_evt->params.cmd_rsp.params.get_device_address.bd_addr_own[x],HEX);
+            }
+            Serial.println(F(""));
+            BTAddr=aci_evt->params.cmd_rsp.params.get_device_address;
+            Serial.println(F("Stored the following address in strBTAddr"));
+            Serial.println(strBTAddr);
+        }
         break;
         
       case ACI_EVT_CONNECTED:
