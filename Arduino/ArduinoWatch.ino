@@ -131,6 +131,7 @@ boolean blnConnected;
 boolean blnBTInit;
 boolean blnDayAdded;
 boolean blnBTAddrFound;
+boolean blnBTAddrDisp;
 //boolean blnDebug=false;
 uint8_t currentHour,currentMin,currentSec;
 String currentToD;
@@ -207,6 +208,8 @@ void setup()
   
   blnConnected=false;
   blnDayAdded=false;
+  blnBTAddrFound=false;
+  blnBTAddrDisp=false;
   currentTime.setTime(12,0,0,0);
   currentHour=currentTime.getHours();
   currentMin=currentTime.getMinutes();
@@ -237,12 +240,16 @@ void loop()
       setCursor(0,2);
       writeString("Ready...");
     }
-    if(BTLEserial.strBTAddr.length()  > 0 && blnBTAddrFound == false)
+    if(BTLEserial.strBTAddr.length()  > 0)
     {
-      setCursor(50,2);
-      Serial.println("Read the following from strBTAddr");
-      Serial.println(BTLEserial.strBTAddr);
-      writeString(BTLEserial.strBTAddr);
+      if(blnBTAddrDisp == false && blnBTAddrFound==true)
+      {
+        setCursor(50,2);
+        Serial.println("Read the following from strBTAddr");
+        Serial.println(BTLEserial.strBTAddr);
+        writeString(BTLEserial.strBTAddr);
+        blnBTAddrDisp=true;
+      }
       blnBTAddrFound=true;
     }
     blnConnected=false;
@@ -256,6 +263,7 @@ void loop()
       {
         writeBlankLine(2);
         writeBlankLine(3);
+        blnBTAddrDisp=false;
         setCursor(0,3);
         //writeString("Connected.");
       }
@@ -291,12 +299,16 @@ void loop()
         writeString("Ready...");
         blnConnected=false;
       }
-      if(BTLEserial.strBTAddr.length()  > 0 && blnBTAddrFound == false)
+      if(BTLEserial.strBTAddr.length()  > 0)
       {
-        setCursor(50,2);
-        Serial.println("Read the following from strBTAddr");
-        Serial.println(BTLEserial.strBTAddr);
-        writeString(BTLEserial.strBTAddr);
+        if(blnBTAddrDisp == false && blnBTAddrFound==true)
+        {
+          setCursor(50,2);
+          Serial.println("Read the following from strBTAddr");
+          Serial.println(BTLEserial.strBTAddr);
+          writeString(BTLEserial.strBTAddr);
+          blnBTAddrDisp=true;
+        }
         blnBTAddrFound=true;
       }
   }
