@@ -130,7 +130,7 @@ public class ArduinoWatchService extends Service
 		TimeZone tz = cal.getTimeZone();
 
 		/* date formatter in local timezone */
-		SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMHHmmss");
+		SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMddHHmmss");
 		sdf.setTimeZone(tz);
 
 		/* Generate time string to send to watch */
@@ -190,21 +190,19 @@ public class ArduinoWatchService extends Service
 
 	public void sendToWatch(String s) throws IOException
 	{
-		if (tx == null)
+		if (tx != null)
 		{
-			// Do nothing if there is no device or message to send.
-			return;
-		}
-		// Update TX characteristic value. Note the setValue overload that
-		// takes a byte array must be used.
-		tx.setValue(s.getBytes());
-		if (gatt.writeCharacteristic(tx))
-		{
-			System.out.println("Sent: " + s.getBytes());
-		}
-		else
-		{
-			System.out.println("Couldn't write TX characteristic!");
+			// Update TX characteristic value. Note the setValue overload that
+			// takes a byte array must be used.
+			tx.setValue(s.getBytes());
+			if (gatt.writeCharacteristic(tx))
+			{
+				System.out.println("Sent: " + s);
+			}
+			else
+			{
+				System.out.println("Couldn't write TX characteristic!");
+			}
 		}
 	}
 
@@ -361,22 +359,26 @@ public class ArduinoWatchService extends Service
 		@Override public void onLeScan(BluetoothDevice bluetoothDevice,
 				int i, byte[] bytes)
 		{
-			System.out.println("Found device: "
-					+ bluetoothDevice.getAddress());
-			if (bluetoothDevice.getAddress() == strWatchBTID)
+			if(bluetoothDevice.getAddress() != null)
 			{
-				// Check if the device has the UART service.
-				if (parseUUIDs(bytes).contains(UART_UUID))
+				String strFoundDevice=new String (bluetoothDevice.getAddress());
+				System.out.println("Found device: " + strFoundDevice);
+				if (strFoundDevice.compareTo(strWatchBTID) == 0 )
 				{
-					// Found a device, stop the scan.
-					adapter.stopLeScan(scanCallback);
-					System.out.println("Found UART service!");
-					// Connect to the device.
-					// Control flow will now go to the callback functions
-					// when
-					// BTLE events occur.
-					gatt = bluetoothDevice.connectGatt(
-							getApplicationContext(), false, callback);
+					System.out.println("Found watch.");
+					// Check if the device has the UART service.
+					if (parseUUIDs(bytes).contains(UART_UUID))
+					{
+						// Found a device, stop the scan.
+						adapter.stopLeScan(scanCallback);
+						System.out.println("Found UART service!");
+						// Connect to the device.
+						// Control flow will now go to the callback functions
+						// when
+						// BTLE events occur.
+						gatt = bluetoothDevice.connectGatt(
+								getApplicationContext(), false, callback);
+					}
 				}
 			}
 		}
