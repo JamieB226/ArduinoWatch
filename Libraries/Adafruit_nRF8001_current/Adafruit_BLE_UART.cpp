@@ -12,6 +12,9 @@ please support Adafruit and open-source hardware by purchasing
 products from Adafruit!
 
 Written by Kevin Townsend/KTOWN  for Adafruit Industries.  
+Modified by Jamie Booth (JamieB226@aol.com).
+    Shrink buffer size to save RAM
+    Make BT Address available as string and bytes.
 MIT license, check LICENSE for more information
 All text above, and the splash screen below must be included in any redistribution
 *********************************************************************/
@@ -330,7 +333,7 @@ void Adafruit_BLE_UART::pollACI()
             strBTAddr="";
             for (uint8_t x=0; x<BTLE_DEVICE_ADDRESS_SIZE; x++)
             {
-                String tempAddr=String(aci_evt->params.cmd_rsp.params.get_device_address.bd_addr_own[x],HEX);
+                String tempAddr=String(aci_evt->params.cmd_rsp.params.get_device_address.bd_addr_own[(BTLE_DEVICE_ADDRESS_SIZE-1)-x],HEX);
                 if(tempAddr.length() < 2)
                 {
                     tempAddr='0'+tempAddr;
