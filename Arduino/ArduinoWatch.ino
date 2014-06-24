@@ -347,6 +347,7 @@ void loop()
   if(currentHour==99)
   {
     writeTime(currentTime.getAMPMHours(),currentTime.getMinutes(),currentTime.getSeconds(),currentToD,true);
+    writeDate(currentDate.getDoW(),currentDate.getYear(),currentDate.getMonth(),currentDate.getDay());
   }
   else
   {
@@ -366,6 +367,7 @@ void loop()
   {
     blnDayAdded=false;
   }
+
 }
 
 void processBTInput(String s)
