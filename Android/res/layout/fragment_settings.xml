@@ -28,7 +28,7 @@
                 android:id="@+id/lblRSSFeedURL"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="RSS Feed URL"
+                android:text="TTRSS API URL"
                 android:textAppearance="?android:attr/textAppearanceMedium" />
 
             <EditText
@@ -51,7 +51,7 @@
                 android:id="@+id/lblRSSFeedUserName"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="RSS Feed Username"
+                android:text="TTRSS API Username"
                 android:textAppearance="?android:attr/textAppearanceMedium" />
 
             <EditText
@@ -70,7 +70,7 @@
                 android:id="@+id/lblRSSFeedPassword"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="RSS Feed Password"
+                android:text="TTRSS API Password"
                 android:textAppearance="?android:attr/textAppearanceMedium" />
 
             <EditText
