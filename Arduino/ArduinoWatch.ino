@@ -18,6 +18,8 @@ aci_evt_opcode_t laststatus;
 #define OLED_RST 8
 
 #define VIBRATION 4
+#define BATTSTAT1 A0
+#define BATTSTAT2 A1
 
 #include <SSD1306ASCII.h>
 #define SSD1306_COLUMNADDR 0x21
@@ -28,6 +30,10 @@ uint8_t xpos=0,ypos=0;
 static unsigned char __attribute__ ((progmem)) GMail_Logo[]={0xFF,0xFF,0x06,0x06,0x0C,0x0C,0x06,0x06,0xFF,0xFF};
 static unsigned char __attribute__ ((progmem)) EMail_Logo[]={0xFF,0x83,0x85,0x89,0x91,0x91,0x89,0x85,0x83,0xFF};
 static unsigned char __attribute__ ((progmem)) RSS_Logo[]={0xDB,0xDB,0x1B,0xF3,0xEE,0x0E,0xFC,0xF0};
+static unsigned char __attribute__ ((progmem)) NestHome_Logo[]={0x00,0x3C,0x7E,0x81,0xE7,0xE7,0xE7,0x81,0x7E,0x3C};
+static unsigned char __attribute__ ((progmem)) NestAway_Logo[]={0x00,0x3C,0x7E,0x83,0xED,0xED,0xED,0x83,0x7E,0x3C};
+static unsigned char __attribute__ ((progmem)) Charged_Logo[]={0x18,0x38,0x70,0xE0,0x70,0x38,0x1C,0x0E,0x07,0x03};
+static unsigned char __attribute__ ((progmem)) Charging_Logo[]={0x00,0x1C,0x3C,0x3F,0xFC,0xFC,0x3F,0x3C,0x1C,0x00};
   
 static unsigned char __attribute__ ((progmem)) font[] = {
   0x00, 0x00, 0x00, 0x00, 0x00, // SPACE
@@ -127,17 +133,22 @@ static unsigned char __attribute__ ((progmem)) font[] = {
   0x02, 0x01, 0x02, 0x04, 0x02, // ~
 };
 
-boolean blnConnected;
-boolean blnBTInit;
-boolean blnDayAdded;
-boolean blnBTAddrFound;
-boolean blnBTAddrDisp;
-//boolean blnDebug=false;
+boolean blnConnected=false;
+boolean blnBTInit=false;
+boolean blnDayAdded=false;
+boolean blnBTAddrFound=false;
+boolean blnBTAddrDisp=false;
+boolean blnNotificationUpdate=true;
+boolean blnNestHome=true; // Home=true, Away=false
+uint8_t intChargeStatus,intOldChargeStatus;
 uint8_t currentHour,currentMin,currentSec;
+uint8_t intGmail=0,intEmail=0;
+uint16_t intRSS=0;
 String currentToD;
 Time currentTime;
 Date currentDate;
 uint32_t timer;
+uint32_t NotificationStartTime=millis();
 aci_evt_opcode_t status;
 //int freeRAM=0;
 
@@ -146,7 +157,21 @@ void setup()
   Serial.begin(9600);
   Serial.println(F("In init"));
   //Setup up vibration motor
-  pinMode(VIBRATION,OUTPUT);  
+  pinMode(VIBRATION,OUTPUT);
+  
+  //Setup charging monitor
+  // Not connected:  BATTSTAT1 = HI, BATTSTAT2 = HI, intChargeStatus=0
+  // Charging:  BATTSTAT1 = L, BATTSTAT2 = HI, intChargeStatus=1
+  // Charge Complete:  BATTSTAT1 = HI, BATTSTAT2 = L,intChargeStatus=2
+  pinMode(BATTSTAT1,INPUT);
+  pinMode(BATTSTAT2,INPUT);
+  intChargeStatus=0;
+  intOldChargeStatus=0;
+  updateChargeStatus();
+  
+  //Set default Nest to away
+  blnNestHome=false;
+  
   blnBTInit=false;
   Serial.println(F("Setting up SPI"));
   SPI.begin ();
@@ -221,13 +246,21 @@ void setup()
   
   writeTime(currentTime.getAMPMHours(),currentTime.getMinutes(),currentTime.getSeconds(),currentToD,true);
   writeDate(currentDate.getDoW(),currentDate.getYear(),currentDate.getMonth(),currentDate.getDay());
-  writeNotificationLine(0,0,0);
+  writeNotificationLine(0,0,0,1,intChargeStatus);
 
   Serial.println(F("Init complete"));
 }
 
 void loop()
 { 
+  //Update Charge Status
+  updateChargeStatus();
+  if(intOldChargeStatus != intChargeStatus)
+  {
+    writeChargeStatus(intChargeStatus);
+    intOldChargeStatus = intChargeStatus;
+  }
+  
   BTLEserial.pollACI();
   status=BTLEserial.getState();
 
@@ -245,7 +278,7 @@ void loop()
       if(blnBTAddrDisp == false && blnBTAddrFound==true)
       {
         setCursor(50,2);
-        Serial.println("Read the following from strBTAddr");
+        Serial.println(F("Read the following from strBTAddr"));
         Serial.println(BTLEserial.strBTAddr);
         writeString(BTLEserial.strBTAddr);
         blnBTAddrDisp=true;
@@ -304,7 +337,7 @@ void loop()
         if(blnBTAddrDisp == false && blnBTAddrFound==true)
         {
           setCursor(50,2);
-          Serial.println("Read the following from strBTAddr");
+          Serial.println(F("Read the following from strBTAddr"));
           Serial.println(BTLEserial.strBTAddr);
           writeString(BTLEserial.strBTAddr);
           blnBTAddrDisp=true;
@@ -351,7 +384,25 @@ void loop()
   }
   else
   {
-    writeTime(currentTime.getAMPMHours(),currentTime.getMinutes(),currentTime.getSeconds(),currentToD,false);
+//    if(timer>millis())
+//    {
+//      //We just wrapped over
+//      //Clear notification and update time in case we were in the middle of a notification.
+//      NotificationStartTime=0;
+//      writeTime(currentTime.getAMPMHours(),currentTime.getMinutes(),currentTime.getSeconds(),currentToD,true);
+//    }
+//    else
+//    {
+//      if(NotificationStartTime+5000 > millis())
+//      {
+//        //Skip time update because notification is being displayed
+//      }
+//      else
+//      {
+        writeTime(currentTime.getAMPMHours(),currentTime.getMinutes(),currentTime.getSeconds(),currentToD,false);
+//      }
+//
+//    }
   }  
   
   // Update Date if required (time is midnight and we haven't already added a day)
@@ -368,6 +419,34 @@ void loop()
     blnDayAdded=false;
   }
 
+  if(blnNotificationUpdate == true)
+  {
+    writeNotificationLine(intGmail,intEmail,intRSS,blnNestHome,intChargeStatus);
+  }
+}
+
+void updateChargeStatus()
+{
+  // Not connected:  BATTSTAT1 = HI, BATTSTAT2 = HI, intChargeStatus=0
+  // Charging:  BATTSTAT1 = L, BATTSTAT2 = HI, intChargeStatus=1
+  // Charge Complete:  BATTSTAT1 = HI, BATTSTAT2 = L,intChargeStatus=2
+  
+  if(digitalRead(BATTSTAT1) == HIGH && digitalRead(BATTSTAT2) == HIGH)
+  {
+    intChargeStatus=0;
+  }
+  else if (digitalRead(BATTSTAT1) == LOW && digitalRead(BATTSTAT2) == HIGH)
+  {
+    intChargeStatus=1;
+  }
+  else if (digitalRead(BATTSTAT1) == HIGH && digitalRead(BATTSTAT2) == LOW)
+  {
+    intChargeStatus=2;
+  }
+  else
+  {
+    intChargeStatus=0;
+  }
 }
 
 void processBTInput(String s)
@@ -400,12 +479,41 @@ void processBTInput(String s)
   {
     processIncomingCall(s);
   }
+//  if(s.startsWith("$g1") == true)
+//  {
+//    NotificationStartTime=millis();
+//    processGeneralNotification(s,1);
+//  }
+//  if(s.startsWith("$g2") == true)
+//  {
+//    processGeneralNotification(s,2);
+//  }
+//  if(s.startsWith("$g3") == true)
+//  {
+//    processGeneralNotification(s,3);
+//  }
 //  if(s.startsWith("$db") == true)
 //  {
 //    blnDebug=!blnDebug;
 //    writeBlankLine(2);
 //  }
 }
+
+//void processGeneralNotification(String s,int line)
+//{
+//  writeBlankLine(line+2);
+//  setCursor(0,line+2);
+//  writeString(s.substring(3));
+//  if(line == 3)
+//  {
+//    vibrate(1);
+//    delay(3000);
+//    writeBlankLine(3);
+//    writeBlankLine(4);
+//    writeBlankLine(5);
+//    currentHour=99;
+//  }
+//}
 
 void processIncomingTime(String s)
 {
@@ -421,19 +529,31 @@ void processIncomingTime(String s)
 
 void processIncomingNotificationUpdate(String s)
 {
-  uint8_t intGmail=0,intEmail=0, intRSS=0,intStart,intEnd;
+  uint8_t intStart,intEnd,intNest;
   
   intStart=3;
   intEnd=s.indexOf(',');
-  intGmail=(s.substring(intStart,intEnd).toInt());
+  intGmail=s.substring(intStart,intEnd).toInt();
   intStart=intEnd+1;
   intEnd=s.indexOf(',',intStart);
-  intEmail=(s.substring(intStart,intEnd).toInt());
+  intEmail=s.substring(intStart,intEnd).toInt();
+  intStart=intEnd+1;
+  intEnd=s.indexOf(',',intStart);
+  intRSS=s.substring(intStart,intEnd).toInt();
   intStart=intEnd+1;
   intEnd=s.length();
-  intRSS=(s.substring(intStart,intEnd).toInt());
+  intNest=(s.substring(intStart,intEnd).toInt());
   
-  writeNotificationLine(intGmail,intEmail,intRSS);
+  if(intNest == 0)
+  {
+    blnNestHome=false;
+  }
+  else
+  {
+    blnNestHome=true;
+  }
+  
+  blnNotificationUpdate=true;
 }
 
 void processIncomingEmail(String s)
@@ -472,7 +592,7 @@ void processIncomingCall(String s)
     currentHour=99;
 }
 
-void writeNotificationLine(uint8_t numGmail,uint8_t numEmail, uint8_t numRSS)
+void writeNotificationLine(uint8_t numGmail,uint8_t numEmail, uint16_t numRSS,boolean nestHome,uint8_t chargeStatus)
 {
   writeBlankLine(0);
   writeLogo(GMail_Logo,10,0,0);
@@ -484,6 +604,29 @@ void writeNotificationLine(uint8_t numGmail,uint8_t numEmail, uint8_t numRSS)
   writeLogo(RSS_Logo,8,64,0);
   setCursor(74,0);
   writeString(String(numRSS));
+  if(nestHome == true)
+  {
+    writeLogo(NestHome_Logo,10,95,0);
+  }
+  else
+  {
+    writeLogo(NestAway_Logo,10,95,0);
+  }
+  writeChargeStatus(chargeStatus);
+  
+  blnNotificationUpdate=false;
+}
+
+void writeChargeStatus(uint8_t chargeStatus)
+{
+  if(chargeStatus == 1)
+  {
+    writeLogo(Charging_Logo,10,117,0);
+  }
+  else if (chargeStatus == 2)
+  {
+    writeLogo(Charged_Logo,10,117,0);
+  }
 }
 
 void ssd1306_command(uint8_t c)
