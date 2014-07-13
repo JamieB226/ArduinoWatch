@@ -24,8 +24,7 @@ public class Settings extends Activity {
 	public static String strRSSFeedURL;
 	public static String strRSSFeedUserName;
 	public static String strRSSFeedPassword;
-	public static String strGmailUserName;
-	public static String strGmailPassword;
+	public static String strNestPIN;
 	public static String strIMAPUserName;
 	public static String strIMAPPassword;
 	public static String strIMAPServer;
@@ -46,8 +45,7 @@ public class Settings extends Activity {
 		strRSSFeedURL = settings.getString("RSSFeedURL", "");
 		strRSSFeedUserName = settings.getString("RSSFeedUserName", "");
 		strRSSFeedPassword = settings.getString("RSSFeedPassword", "");
-		strGmailUserName = settings.getString("GmailUserName", "");
-		strGmailPassword = settings.getString("GmailPassword", "");
+		strNestPIN = settings.getString("NestPIN", "");
 		strIMAPUserName = settings.getString("IMAPUserName", "");
 		strIMAPPassword = settings.getString("IMAPPassword", "");
 		strIMAPServer = settings.getString("IMAPServer", "");
@@ -98,10 +96,8 @@ public class Settings extends Activity {
 			temp.setText(strRSSFeedUserName);
 			temp = (EditText) rootView.findViewById(R.id.txtRSSFeedPassword);
 			temp.setText(strRSSFeedPassword);
-			temp = (EditText) rootView.findViewById(R.id.txtGmailUserName);
-			temp.setText(strGmailUserName);
-			temp = (EditText) rootView.findViewById(R.id.txtGmailPassword);
-			temp.setText(strGmailPassword);
+			temp = (EditText) rootView.findViewById(R.id.txtNestPIN);
+			temp.setText(strNestPIN);
 			temp = (EditText) rootView.findViewById(R.id.txtIMAPUserName);
 			temp.setText(strIMAPUserName);
 			temp = (EditText) rootView.findViewById(R.id.txtIMAPPassword);
@@ -139,10 +135,8 @@ public class Settings extends Activity {
 		editor.putString("RSSFeedUserName",temp.getText().toString());
 		temp = (EditText) findViewById(R.id.txtRSSFeedPassword);
 		editor.putString("RSSFeedPassword",temp.getText().toString());
-		temp = (EditText) findViewById(R.id.txtGmailUserName);
-		editor.putString("GmailUserName",temp.getText().toString());
-		temp = (EditText) findViewById(R.id.txtGmailPassword);
-		editor.putString("GmailPassword",temp.getText().toString());
+		temp = (EditText) findViewById(R.id.txtNestPIN);
+		editor.putString("NestPIN",temp.getText().toString());
 		temp = (EditText) findViewById(R.id.txtIMAPUserName);
 		editor.putString("IMAPUserName",temp.getText().toString());
 		temp = (EditText) findViewById(R.id.txtIMAPPassword);

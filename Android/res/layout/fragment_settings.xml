@@ -82,38 +82,19 @@
         </TableRow>
 
         <TableRow
-            android:id="@+id/tableRow4"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content" >
-
-            <TextView
-                android:id="@+id/lblGmailUserName"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Gmail Username"
-                android:textAppearance="?android:attr/textAppearanceMedium" />
-
-            <EditText
-                android:id="@+id/txtGmailUserName"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:ems="10" />
-        </TableRow>
-
-        <TableRow
             android:id="@+id/tableRow5"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content" >
 
             <TextView
-                android:id="@+id/lblGmailPassword"
+                android:id="@+id/lblNestPIN"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Gmail Password"
+                android:text="Nest Pin"
                 android:textAppearance="?android:attr/textAppearanceMedium" />
 
             <EditText
-                android:id="@+id/txtGmailPassword"
+                android:id="@+id/txtNestPIN"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:ems="10"

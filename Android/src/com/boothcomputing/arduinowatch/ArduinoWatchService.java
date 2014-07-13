@@ -28,6 +28,17 @@ import org.apache.http.params.BasicHttpParams;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import com.firebase.client.DataSnapshot;
+import com.firebase.client.Firebase;
+import com.firebase.client.FirebaseError;
+import com.firebase.client.ValueEventListener;
+
+import android.accounts.Account;
+import android.accounts.AccountManager;
+import android.accounts.AccountManagerCallback;
+import android.accounts.AccountManagerFuture;
+import android.accounts.AuthenticatorException;
+import android.accounts.OperationCanceledException;
 import android.app.Service;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothAdapter.LeScanCallback;
@@ -40,30 +51,37 @@ import android.bluetooth.BluetoothSocket;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.database.Cursor;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.ParcelUuid;
 import android.preference.PreferenceManager;
 import android.util.Log;
+import android.widget.EditText;
 
 public class ArduinoWatchService extends Service
 {
 	public static String strRSSFeedURL;
 	public static String strRSSFeedUserName;
 	public static String strRSSFeedPassword;
-	public static String strGmailUserName;
-	public static String strGmailPassword;
+	public static String strNestUserName;
+	public static String strNestPIN;
 	public static String strAOLUserName;
 	public static String strAOLPassword;
 	public static String strWatchBTID;
+	public static String strNestCode;
 	public static int intGmailMessages;
 	public static int intIMAPMessages;
 	public static int intRSSUnread;
+	public static int intNestStatus; //Home=0,Away=1
+	private static Calendar dteNestTokenExpires=null;
 	byte[] watchBuffer = new byte[32];
 	byte[] outBuffer = new byte[32];
 	private static boolean blnSync;
 	public static long TimeUpdateInterval = 1800000;
 	private static long ThrottleDelay = 30000;
+	private static Firebase nestapi=null;
+	private static String strNestAccessToken="";
 
 	// UUIDs for UAT service and associated characteristics.
 	public static UUID UART_UUID = UUID
@@ -76,6 +94,9 @@ public class ArduinoWatchService extends Service
 	// notifications.
 	public static UUID CLIENT_UUID = UUID
 			.fromString("00002902-0000-1000-8000-00805f9b34fb");
+	
+	private static String NestClientID="9ebcdba4-7e33-40c7-a766-d1e759b75eea";
+	private static String NestClientSecret="5KtcNLgrrcu5dTPkGXaujXRZI";
 
 	// BTLE state
 	private BluetoothAdapter adapter;
@@ -161,18 +182,20 @@ public class ArduinoWatchService extends Service
 		}
 	}
 
-	private void readSettings()
+	@SuppressWarnings("deprecation") private void readSettings()
 	{
 		SharedPreferences settings = getBaseContext().getSharedPreferences(
 				"ArduinoWatch", Context.MODE_PRIVATE);
 		strRSSFeedURL = settings.getString("RSSFeedURL", "");
 		strRSSFeedUserName = settings.getString("RSSFeedUserName", "");
 		strRSSFeedPassword = settings.getString("RSSFeedPassword", "");
-		strGmailUserName = settings.getString("GmailUserName", "");
-		strGmailPassword = settings.getString("GmailPassword", "");
+		strNestPIN = settings.getString("NestPIN", "");
 		strAOLUserName = settings.getString("AOLUserName", "");
 		strAOLPassword = settings.getString("AOLPassword", "");
 		strWatchBTID = settings.getString("WatchBTID", "");
+		strNestAccessToken = settings.getString("NestAccessToken", "");
+		dteNestTokenExpires = Calendar.getInstance();
+		dteNestTokenExpires.setTimeInMillis(settings.getLong("NestAccessTokenExpires", 0));
 	}
 
 	private void initWatchConnection() throws IOException
@@ -416,24 +439,24 @@ public class ArduinoWatchService extends Service
 	@Override public int onStartCommand(Intent intent, int flags, int startId)
 	{
 		readSettings();
-		try
-		{
-			if (gatt != null)
-			{
-				if (!gatt.writeCharacteristic(tx))
-				{
-					initWatchConnection();
-				}
-			}
-			else
-			{
-				initWatchConnection();
-			}
-		}
-		catch (IOException e)
-		{
-			System.out.println("Service:  Error Connecting");
-		}
+//		try
+//		{
+//			if (gatt != null)
+//			{
+//				if (!gatt.writeCharacteristic(tx))
+//				{
+//					initWatchConnection();
+//				}
+//			}
+//			else
+//			{
+//				initWatchConnection();
+//			}
+//		}
+//		catch (IOException e)
+//		{
+//			System.out.println("Service:  Error Connecting");
+//		}
 		final Runnable r = new Runnable()
 		{
 			public void run()
@@ -443,38 +466,41 @@ public class ArduinoWatchService extends Service
 				timerHandler.postDelayed(timerRunnable, TimeUpdateInterval);
 				while (true)
 				{
-					intRSSUnread = checkRSSUnread();
-					if(intOldRSS != intRSSUnread)
-					{
-						System.out.println("Service:  RSS Unread has changed.  Sending Update.");
-						sendNotificationUpdate();
-						intOldRSS=intRSSUnread;
-					}
-					if(intRSSUnread==-1)
-					{
-						intRSSUnread=0;
-					}
-					if (tx != null)
-					{
-						if (tx != oldtx)
-						{
-							// Just connected
-							sendTimeUpdate();
-							sendNotificationUpdate();
-							oldtx = tx;
-						}
-					}
-					else
-					{
-						try
-						{
-							initWatchConnection();
-						}
-						catch (IOException e)
-						{
-							System.out.println("Service:  Failed to Connect to Watch");
-						}
-					}
+					getNestStatus();
+//					getIMAPCount();
+//					getGmailCount();
+//					intRSSUnread = checkRSSUnread();
+//					if(intOldRSS != intRSSUnread)
+//					{
+//						System.out.println("Service:  RSS Unread has changed.  Sending Update.");
+//						sendNotificationUpdate();
+//						intOldRSS=intRSSUnread;
+//					}
+//					if(intRSSUnread==-1)
+//					{
+//						intRSSUnread=0;
+//					}
+//					if (tx != null)
+//					{
+//						if (tx != oldtx)
+//						{
+//							// Just connected
+//							sendTimeUpdate();
+//							sendNotificationUpdate();
+//							oldtx = tx;
+//						}
+//					}
+//					else
+//					{
+//						try
+//						{
+//							initWatchConnection();
+//						}
+//						catch (IOException e)
+//						{
+//							System.out.println("Service:  Failed to Connect to Watch");
+//						}
+//					}
 					// do stuff
 					try
 					{
@@ -490,6 +516,199 @@ public class ArduinoWatchService extends Service
 		Thread t = new Thread(r);
 		t.start();
 		return Service.START_STICKY;
+	}
+
+	protected void getNestStatus()
+	{
+		JSONObject JOResponse;
+		String strBaseURL="https://developer-api.nest.com";
+		String strAccessURL= "https://api.home.nest.com/oauth2/access_token?code="+strNestPIN+"&client_id="+NestClientID+"&client_secret="+NestClientSecret+"&grant_type=authorization_code";
+		
+		if(dteNestTokenExpires == null || dteNestTokenExpires.before(Calendar.getInstance()))
+		{
+			if(strNestPIN != "")
+			{
+				System.out.println("Service:  Getting Nest Auth Token");
+				JOResponse = makeJSONRequest("", strAccessURL);
+				if (JOResponse != null)
+				{
+					try
+					{
+						if(!JOResponse.has("error"))
+						{
+							strNestAccessToken = JOResponse.getString("access_token");
+							System.out.println("Service:  Got Nest Access Token:" + strNestAccessToken);
+							SharedPreferences settings = getBaseContext().getSharedPreferences("ArduinoWatch", MODE_PRIVATE);
+							SharedPreferences.Editor editor = settings.edit();
+							editor.putString("NestAccessToken",strNestAccessToken);
+							dteNestTokenExpires=Calendar.getInstance();
+							dteNestTokenExpires.add(Calendar.SECOND, JOResponse.getInt("expires_in"));
+							System.out.println("Service:  Nest Token Expires on "+dteNestTokenExpires);
+							editor.putLong("NestAccessTokenExpires", dteNestTokenExpires.getTimeInMillis());
+							editor.commit();
+						}
+					}
+					catch (JSONException e)
+					{
+						return;
+					}
+				}
+				else
+				{
+					dteNestTokenExpires=null;
+					strNestAccessToken="";
+					return;
+				}
+			}
+			else
+			{
+				System.out.println("Service:  No Nest client PIN entered.  Clearing Nest Auth");
+				SharedPreferences settings = getBaseContext().getSharedPreferences("ArduinoWatch", MODE_PRIVATE);
+				SharedPreferences.Editor editor = settings.edit();
+				editor.putString("NestPIN", "");
+				editor.putString("NestAccessToken","");
+				editor.putLong("NestAccessTokenExpires", 0);
+				editor.commit();
+			}
+		}
+		else
+		{
+			if(nestapi == null)
+			{
+				System.out.println("Service:  Setting up Nest Monitor");
+				nestapi = new Firebase(strBaseURL);
+				nestapi.auth(strNestAccessToken, new Firebase.AuthListener() {
+
+					    @Override
+					    public void onAuthError(FirebaseError error) {
+					        System.out.println("Service:  Nest Login Failed! " + error.getMessage());
+					    }
+
+					    @Override
+					    public void onAuthSuccess(Object authData) {
+					        System.out.println("Service:  Nest Login Succeeded!");
+					    }
+
+					    @Override
+					    public void onAuthRevoked(FirebaseError error) {
+					        System.out.println("Service:  Nest Authentication status was cancelled! " + error.getMessage());
+					    }
+
+					}
+				);
+
+				nestapi.addValueEventListener(new ValueEventListener() {
+					  @Override
+					  public void onDataChange(DataSnapshot snapshot) {
+					    System.out.println("Service:  Nest output:  " + snapshot.getValue());
+					    for(DataSnapshot structures : snapshot.getChildren())
+					    {
+						    for(DataSnapshot structure : structures.getChildren())
+						    {
+							    if(structure.hasChild("away") == true)
+							    {
+								    String strNestStatus = (String) structure.child("away").getValue();
+								    System.out.println("Service:  Nest Status = "+strNestStatus);
+								    if(strNestStatus.equals("home") == true)
+								    {
+									    // Nest is Home
+									    intNestStatus=0;
+								    }
+								    else
+								    {
+									    // Nest is Away or AutoAway
+									    intNestStatus=1;
+								    }
+								    System.out.println("Service:  Set intNestStatus = "+intNestStatus);
+							    }
+						    }
+					    }
+					  }
+
+					  @Override
+					  public void onCancelled(FirebaseError error) {
+					    System.out.println("Service:  Nest Listener was cancelled");
+					  }
+					}
+				);
+			}
+		}
+	}
+
+	@SuppressWarnings(
+	{ "unchecked", "rawtypes", "unused" }) private void getGmailCount()
+	{
+		System.out.println("Service:  Starting getGmailCount()");
+		// Get the account list, and pick the first one
+		final String ACCOUNT_TYPE_GOOGLE = "com.google";
+		final String[] FEATURES_MAIL =
+		{ "service_mail" };
+		try
+		{
+			AccountManager.get(this).getAccountsByTypeAndFeatures(
+					ACCOUNT_TYPE_GOOGLE, FEATURES_MAIL,
+					new AccountManagerCallback()
+					{
+						@Override public void run(AccountManagerFuture future)
+						{
+							Account[] accounts = null;
+							System.out.println("Service:  In Account Manager callback");
+							try
+							{
+								accounts = (Account[]) future.getResult();
+								if (accounts != null && accounts.length > 0)
+								{
+									String selectedAccount = accounts[0].name;
+									System.out.println("Service:  Selected Account "+selectedAccount);
+									Cursor labelsCursor = getContentResolver().query(GmailContract.Labels
+													.getLabelsUri(selectedAccount),
+													null, null, null,
+													null);
+									System.out.println("Service:  Got Gmail Info");
+									// loop through the cursor and find the Inbox
+									if (labelsCursor != null) {
+									    final String inboxCanonicalName = GmailContract.Labels.LabelCanonicalNames.CANONICAL_NAME_ALL_MAIL;
+									    final int canonicalNameIndex = labelsCursor.getColumnIndexOrThrow(GmailContract.Labels.CANONICAL_NAME);
+									    while (labelsCursor.moveToNext()) {
+									        if (inboxCanonicalName.equals(labelsCursor.getString(canonicalNameIndex))) {
+									     	// this row corresponds to the Inbox
+									            System.out.println("Service:  Found Gmail Inbox");
+									            // Unfortunately, this returns number of unread conversations not messages.
+									            intGmailMessages = labelsCursor.getInt(labelsCursor.getColumnIndex("numUnreadConversations"));
+									            System.out.println("Service:  Set intGmailMessages to "+intGmailMessages);
+									        }
+									    }
+									}
+								}
+	
+							}
+							catch (OperationCanceledException oce)
+							{
+								// TODO: handle exception
+							}
+							catch (IOException ioe)
+							{
+								// TODO: handle exception
+							}
+							catch (AuthenticatorException ae)
+							{
+								// TODO: handle exception
+							}
+						}
+					}, null /* handler */);
+			// TODO Auto-generated method stub
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+		}
+	}
+
+	private void getIMAPCount()
+	{
+		System.out.println("Service:  Starting getIMAPCount()");
+		// TODO Auto-generated method stub
+		
 	}
 
 	private BluetoothGattCallback callback = new BluetoothGattCallback()
